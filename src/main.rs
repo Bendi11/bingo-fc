@@ -10,6 +10,6 @@ fn main() -> ! {
     let peripherals = pac::Peripherals::take().unwrap();
 
     loop {
-        core::hint::spin_loop()
+        core::hint::spin_loop();
     }
 }

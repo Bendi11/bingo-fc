@@ -19,4 +19,4 @@ stm32f4xx-hal = { version = "0.22", features = ["stm32f405"] }
 
 [target.release]
 codegen-units = 1
-#opt-level = 's'
+opt-level = 's'
