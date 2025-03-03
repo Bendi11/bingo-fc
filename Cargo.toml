@@ -1,0 +1,22 @@
+[package]
+name = "bingo-fc"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "bingo-fc"
+path = "src/main.rs"
+test = false
+doctest = false
+bench = false
+
+[dependencies]
+embedded-hal = "0.2"
+cortex-m = "0.7"
+cortex-m-rt = "0.7"
+panic-halt = "0.2"
+stm32f4xx-hal = { version = "0.22", features = ["stm32f405"] }
+
+[target.release]
+codegen-units = 1
+#opt-level = 's'
