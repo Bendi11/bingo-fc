@@ -11,11 +11,22 @@ doctest = false
 bench = false
 
 [dependencies]
-embedded-hal = "0.2"
-cortex-m = "0.7"
-cortex-m-rt = "0.7"
+embedded-hal = "1.0"
+embedded-dma = "0.2"
+embedded-hal-bus = "0.3"
+
+cortex-m = { version = "0.7", features = ["critical-section-single-core"] }
+cortex-m-rt = { version = "0.7", features = ["device"] }
 panic-halt = "0.2"
-stm32f4xx-hal = { version = "0.22", features = ["stm32f405"] }
+
+usb-device = "0.3"
+usbd-serial = "0.2"
+
+synopsys-usb-otg = "0.4"
+
+[dependencies.stm32f4xx-hal]
+version = "0.22"
+features = ["stm32f405", "usb_fs"]
 
 [target.release]
 codegen-units = 1

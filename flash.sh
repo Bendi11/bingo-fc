@@ -2,12 +2,12 @@
 
 
 TARGET_DIR="./target/thumbv7em-none-eabihf/release"
-ELF_NAME="bingo-fc"
-HEX_NAME="$ELF_NAME.hex"
-DFU_NAME="$ELF_NAME.dfu"
+NAME="bingo-fc"
+ELF="$TARGET_DIR/$NAME"
+BIN="$TARGET_DIR/$NAME.bin"
+OBJCOPY="arm-none-eabi-objcopy"
 
 cargo build --release
 
-objcopy -O ihex "$TARGET_DIR/$ELF_NAME" "$TARGET_DIR/$HEX_NAME"
-hex2dfu -i "$TARGET_DIR/$HEX_NAME" -o "$TARGET_DIR/$DFU_NAME"
-dfu-util -D "$TARGET_DIR/$DFU_NAME"
+$OBJCOPY -O binary "$ELF" "$BIN"
+dfu-util -a 0 -s 0x08000000:leave -D $BIN
