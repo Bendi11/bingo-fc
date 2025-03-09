@@ -24,6 +24,11 @@ usbd-serial = "0.2"
 
 synopsys-usb-otg = "0.4"
 
+bitbybit = "1.3"
+arbitrary-int = "1.3"
+
+bingofc-derive = { path = "./bingofc-derive" }
+
 [dependencies.stm32f4xx-hal]
 version = "0.22"
 features = ["stm32f405", "usb_fs"]

@@ -12,7 +12,9 @@ use usbd_serial::{embedded_io::Write, SerialPort, USB_CLASS_CDC};
 
 use panic_halt as _;
 
-mod bmi270;
+mod peripheral;
+
+use peripheral::bmi270;
 
 #[cortex_m_rt::entry]
 fn main() -> ! {
