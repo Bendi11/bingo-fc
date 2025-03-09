@@ -34,9 +34,9 @@ pub fn register(args: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
 
-        impl ::core::convert::Into<u8> for #name {
-            fn into(self) -> u8 {
-                self.raw_value()
+        impl ::core::convert::From<#name> for u8 {
+            fn from(v: #name) -> u8 {
+                v.raw_value()
             }
         }
 

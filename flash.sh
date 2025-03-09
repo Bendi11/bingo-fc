@@ -1,5 +1,5 @@
 #!/bin/bash
-
+set -e
 
 TARGET_DIR="./target/thumbv7em-none-eabihf/release"
 NAME="bingo-fc"

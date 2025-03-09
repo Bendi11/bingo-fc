@@ -96,6 +96,7 @@ fn main() -> ! {
     };
 
     let mut bmi = Bmi270::new(spi1);
+    let id = bmi.read_reg::<peripheral::bmi270::regs::InternalStatus>().unwrap();
 
     loop {
         if !device.poll(&mut [&mut serial]) {
@@ -106,6 +107,8 @@ fn main() -> ! {
         
         match serial.read(&mut buf[..]) {
             Ok(_) => {
+                let _ = serial.write_all(&[u8::from(id) + b'0']);
+                let _ = serial.write_all(b"\r\n");
                 pc8.set_high();
             },
             Err(UsbError::WouldBlock) => continue,
