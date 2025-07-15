@@ -36,6 +36,21 @@ pub struct Status {
     pub drdy_acc: bool,
 }
 
+#[register(addr = 0x18, reset = 0x00)]
+pub struct SensorTime0 {
+    #[bits(0..=7, r)] pub sensor_time_7_0: u8,
+}
+
+#[register(addr = 0x19, reset = 0x00)]
+pub struct SensorTime1 {
+    #[bits(0..=7, r)] pub sensor_time_15_8: u8,
+}
+
+#[register(addr = 0x1a, reset = 0x00)]
+pub struct SensorTime2 {
+    #[bits(0..=7, r)] pub sensor_time_23_16: u8,
+}
+
 #[bitenum(u2, exhaustive = true)]
 pub enum ErrorCode {
     NoError = 0x00,
@@ -73,6 +88,7 @@ pub struct IntStatus1 {
     #[bit(7, r)] pub acc_drdy_int: bool,
 }
 
+#[derive(PartialEq, Eq, Debug)]
 #[bitenum(u3, exhaustive = true)]
 pub enum InternalStatusMessage {
     NotInit = 0x00,
@@ -183,4 +199,53 @@ pub enum OisRange {
 pub struct GyrRange {
     #[bits(0..=2, rw)] pub gyr_range: GyrRangeMode,
     #[bit(3, rw)] pub ois_range: OisRange,
+}
+
+#[register(addr = 0x59, reset = 0x00)]
+pub struct InitCtrl {
+    #[bit(0, rw)] pub init_ctrl: bool,
+}
+
+#[register(addr = 0x5b, reset = 0x00)]
+pub struct InitAddr0 {
+    #[bits(0..=3, rw)] pub base_0_3: u4,
+}
+
+#[register(addr = 0x5c, reset = 0x00)]
+pub struct InitAddr1 {
+    #[bits(0..=7, rw)] pub base_11_4: u8,
+}
+
+#[register(addr = 0x5e, reset = 0x00)]
+pub struct InitData {
+    #[bits(0..=7, rw)] pub data: u8,
+}
+
+#[register(addr = 0x7c, reset = 0x03)]
+pub struct PwrConf {
+    #[bit(0, rw)] pub adv_power_save: bool,
+    #[bit(1, rw)] pub fifo_self_wake_up: bool,
+    #[bit(2, rw)] pub fup_en: bool,
+}
+
+#[register(addr = 0x7d, reset = 0x00)]
+pub struct PwrCtrl {
+    #[bit(0, rw)] pub aux_en: bool,
+    #[bit(1, rw)] pub gyr_en: bool,
+    #[bit(2, rw)] pub acc_en: bool,
+    #[bit(3, rw)] pub temp_en: bool,
+}
+
+#[bitenum(u8, exhaustive = false)]
+pub enum CmdField {
+    GTrigger = 0x02,
+    UsrGain = 0x03,
+    NvmProg = 0xa0,
+    FifoFlush = 0xb0,
+    SoftReset = 0xb6
+}
+
+#[register(addr = 0x7e, reset = 0x00)]
+pub struct Cmd {
+    #[bits(0..=7, w)] pub field: CmdField,
 }

@@ -5,7 +5,7 @@ use bmi270::Bmi270;
 use cortex_m::Peripherals;
 use embedded_hal::spi::{Mode, Phase, Polarity};
 use embedded_hal_bus::spi::ExclusiveDevice;
-use stm32f4xx_hal::{gpio::GpioExt, otg_fs::USB, pac::{self, NVIC, SPI1}, prelude::*, rcc::RccExt, timer::SysDelay};
+use stm32f4xx_hal::{gpio::{GpioExt, PinSpeed, Speed}, otg_fs::USB, pac::{self, NVIC, SPI1}, prelude::*, rcc::RccExt, timer::SysDelay};
 use synopsys_usb_otg::UsbBus;
 use usb_device::{device::{StringDescriptors, UsbDeviceBuilder}, LangID, UsbError};
 use usbd_serial::{embedded_io::Write, SerialPort, USB_CLASS_CDC};
@@ -26,7 +26,7 @@ fn main() -> ! {
     
     let gpioc = peripherals.GPIOC.split();
     let mut pc8 = gpioc.pc8.into_push_pull_output();
-    pc8.set_low();
+    pc8.set_high();
 
     let rcc = peripherals.RCC.constrain();
     let clocks = rcc
@@ -37,7 +37,9 @@ fn main() -> ! {
         .require_pll48clk()
         .freeze();
 
-    let gpioa = peripherals.GPIOA.split();
+    let mut gpioa = peripherals.GPIOA.split();
+
+    let mut spi1_cs = gpioa.pa4.into_push_pull_output_in_state(stm32f4xx_hal::gpio::PinState::High);
 
     let usb_dm = gpioa.pa11;
     let usb_dp = gpioa.pa12;
@@ -72,19 +74,24 @@ fn main() -> ! {
         }
     };
 
-    let spi = peripherals.SPI1.spi(
-        (gpioa.pa5, gpioa.pa6, gpioa.pa7),
+    let mut mosi = gpioa.pa7.into_push_pull_output();
+    mosi.set_speed(Speed::VeryHigh);
+    
+    let mut spi = peripherals.SPI1.spi(
+        (gpioa.pa5, gpioa.pa6, mosi),
         Mode {
             polarity: Polarity::IdleLow,
             phase: Phase::CaptureOnFirstTransition
         },
         5.MHz(),
         &clocks
-    );
+    ).init();
 
-    let delay = core_peripherals.SYST.delay(&clocks);
+    spi.bit_format(stm32f4xx_hal::spi::BitFormat::MsbFirst);
 
-    let spi1 = match ExclusiveDevice::new(spi, gpioa.pa4.into_open_drain_output(), delay) {
+    let mut delay = core_peripherals.SYST.delay(&clocks);
+
+    let spi1 = match ExclusiveDevice::new_no_delay(spi, spi1_cs) {
         Ok(d) => {
             let _ = serial.write_all(b"Created SPI device for BMI270\n");
             d
@@ -95,8 +102,11 @@ fn main() -> ! {
         }
     };
 
+    
     let mut bmi = Bmi270::new(spi1);
-    let id = bmi.read_reg::<peripheral::bmi270::regs::InternalStatus>().unwrap();
+
+    let mut init = false;
+    let mut status = None;
 
     loop {
         if !device.poll(&mut [&mut serial]) {
@@ -107,8 +117,12 @@ fn main() -> ! {
         
         match serial.read(&mut buf[..]) {
             Ok(_) => {
-                let _ = serial.write_all(&[u8::from(id) + b'0']);
-                let _ = serial.write_all(b"\r\n");
+                if !init {
+                    status = Some(bmi.init(&mut delay));
+                    init = true;
+                }
+
+                write!(serial, "Chip Status is {:?} - t{}\r\n", status, bmi.sensor_time().unwrap());
                 pc8.set_high();
             },
             Err(UsbError::WouldBlock) => continue,
