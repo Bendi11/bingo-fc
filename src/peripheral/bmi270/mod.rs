@@ -10,7 +10,7 @@ pub struct Bmi270<D: SpiDevice> {
 }
 
 impl<D: SpiDevice> Bmi270<D> {
-    const BMI270_UCODE: &[u8] = include_bytes!("./ucode.bin");
+    const BMI270_MAX_FIFO_UCODE: &[u8] = include_bytes!("./ucode/ucode-max-fifo.bin");
 
     /// Create a new BMI270 driver from an SpiDevice type
     pub fn new(spi: D) -> Self {
@@ -21,11 +21,13 @@ impl<D: SpiDevice> Bmi270<D> {
     
     /// Get the sensor time from the sensor
     pub fn sensor_time(&mut self) -> Result<u24, D::Error> {
-        let st0 = self.read::<regs::SensorTime0>()?.raw_value();
-        let st1 = self.read::<regs::SensorTime1>()?.raw_value();
-        let st2 = self.read::<regs::SensorTime2>()?.raw_value();
+        let mut buf = [0u8 ; 4];
+        self.spi.transaction(&mut [
+            Operation::Write(&[<regs::SensorTime0 as super::Register>::ADDRESS as u8 | 0b10000000]),
+            Operation::Read(&mut buf)
+        ])?;
 
-        Ok(u24::from_le_bytes([st0, st1, st2]))
+        Ok(u24::from_le_bytes([buf[1], buf[2], buf[3]]))
     }
     
     /// Initialize the IMU configuration file and power settings
@@ -44,7 +46,7 @@ impl<D: SpiDevice> Bmi270<D> {
             self.set_init_addr(u12::new(0))?;
             self.write(regs::InitCtrl::DEFAULT.with_init_ctrl(false))?;
 
-            self.burst_write::<regs::InitData>(Self::BMI270_UCODE)?;
+            self.burst_write::<regs::InitData>(Self::BMI270_MAX_FIFO_UCODE)?;
 
             self.write(regs::InitCtrl::DEFAULT.with_init_ctrl(true))?;
             
