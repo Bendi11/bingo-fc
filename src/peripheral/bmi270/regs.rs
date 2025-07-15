@@ -9,20 +9,27 @@ pub trait Register: From<u8> + Into<u8> {
 
 
 #[register(addr = 0x00, reset = 0x24)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ChipId {
     #[bits(0..=7, r)]
     pub id: u8
 }
 
 #[register(addr = 0x02, reset = 0x00)]
+#[derive(Debug)]
 pub struct ErrReg {
     #[bit(1, r)]
     pub fatal_err: bool,
     #[bits(1..=4, r)]
     pub internal_err: u4,
+    #[bit(6, r)]
+    pub fifo_err: bool,
+    #[bit(7, r)]
+    pub aux_err: bool,
 }
 
 #[register(addr = 0x03, reset = 0x10)]
+#[derive(Debug)]
 pub struct Status {
     #[bit(2, r)]
     pub aux_busy: bool,
@@ -52,6 +59,7 @@ pub struct SensorTime2 {
 }
 
 #[bitenum(u2, exhaustive = true)]
+#[derive(Debug)]
 pub enum ErrorCode {
     NoError = 0x00,
     AccErr = 0x01,
@@ -60,6 +68,7 @@ pub enum ErrorCode {
 }
 
 #[register(addr = 0x1B, reset = 0x01)]
+#[derive(Debug)]
 pub struct Event {
     #[bit(0, r)]
     pub por_detected: bool,
@@ -219,6 +228,14 @@ pub struct InitAddr1 {
 #[register(addr = 0x5e, reset = 0x00)]
 pub struct InitData {
     #[bits(0..=7, rw)] pub data: u8,
+}
+
+#[register(addr = 0x5f, reset = 0x00)]
+#[derive(Debug)]
+pub struct InternalError {
+    #[bit(0, r)] pub int_err_1: bool,
+    #[bit(2, r)] pub int_err_2: bool,
+    #[bit(4, r)] pub feat_eng_disabled: bool,
 }
 
 #[register(addr = 0x7c, reset = 0x03)]

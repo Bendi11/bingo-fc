@@ -1,5 +1,6 @@
 use arbitrary_int::{u12, u24, u4, Number};
 use embedded_hal::spi::{Operation, SpiDevice};
+use stm32f4xx_hal::rcc::Clocks;
 
 pub mod regs;
 
@@ -28,45 +29,40 @@ impl<D: SpiDevice> Bmi270<D> {
     }
     
     /// Initialize the IMU configuration file and power settings
-    pub fn init(&mut self, delay: &mut impl embedded_hal::delay::DelayNs) -> Result<regs::InternalStatusMessage, D::Error> {
+    pub fn init(&mut self, clk: &Clocks, delay: &mut impl embedded_hal::delay::DelayNs) -> Result<regs::InternalStatusMessage, D::Error> {
         //Issue unused read to take the BMI270 out of I2C mode if it has not been already
         let _ = self.read::<regs::ChipId>()?;
 
-        delay.delay_ms(2);
+        'outer: loop {
+            self.write(regs::Cmd::DEFAULT.with_field(regs::CmdField::SoftReset))?;
 
-        self.write(regs::Cmd::DEFAULT.with_field(regs::CmdField::SoftReset))?;
+            let pwrconf = self.read::<regs::PwrConf>()?;
+            self.write(pwrconf.with_adv_power_save(false))?;
 
-        let pwrconf = self.read::<regs::PwrConf>()?;
-        self.write(pwrconf.with_adv_power_save(false))?;
+            delay.delay_ms(1); 
 
-        
-        for _ in 0..12 {
-            let sensortime = self.read::<regs::SensorTime0>()?;
+            self.set_init_addr(u12::new(0))?;
+            self.write(regs::InitCtrl::DEFAULT.with_init_ctrl(false))?;
+
+            self.burst_write::<regs::InitData>(Self::BMI270_UCODE)?;
+
+            self.write(regs::InitCtrl::DEFAULT.with_init_ctrl(true))?;
+            
             let mut cycles = 0;
-            while self.read::<regs::SensorTime0>()?.raw_value() == sensortime.raw_value() && cycles < 100000 {
+            loop {
                 cycles += 1;
-            }
-        }
-
-        self.set_init_addr(u12::new(0))?;
-        self.write(regs::InitCtrl::DEFAULT.with_init_ctrl(false))?;
-
-        self.write_config_file()?; 
-
-        self.write(regs::InitCtrl::DEFAULT.with_init_ctrl(true))?;
-        
-        let mut cycles = 0;
-        loop {
-            cycles += 1;
-            let status = self.read::<regs::InternalStatus>()?;
-            if status.message() != regs::InternalStatusMessage::NotInit || cycles > 10000 {
-                break Ok(status.message())
+                let status = self.read::<regs::InternalStatus>()?;
+                match status.message() {
+                    regs::InternalStatusMessage::NotInit if cycles > 10_000 => continue 'outer,
+                    regs::InternalStatusMessage::NotInit => (),
+                    stat => break 'outer Ok(stat)
+                }
             }
         }
     }
     
     /// Read the value from the given register
-    fn read<T: super::Register>(&mut self) -> Result<T, D::Error> {
+    pub fn read<T: super::Register>(&mut self) -> Result<T, D::Error> {
         let mut buf = [0xff, 0xff];
         self.spi.transaction(&mut [
             Operation::Write(&[T::ADDRESS as u8 | 0b10000000]),
@@ -76,6 +72,15 @@ impl<D: SpiDevice> Bmi270<D> {
         Ok(
             T::from(buf[1])
         )
+    }
+    
+    /// Burst write `buf` to the register address given
+    pub fn burst_write<T: super::Register>(&mut self, buf: &[u8]) -> Result<(), D::Error> {
+        for oct in buf.iter().copied() {
+            self.write::<T>(T::from(oct))?;
+        }
+
+        Ok(())
     }
     
     /// Write the register bitfield into the given address
@@ -91,14 +96,5 @@ impl<D: SpiDevice> Bmi270<D> {
         let bits_4_11 = (addr.as_u16() >> 4) as u8;
         self.write(regs::InitAddr0::DEFAULT.with_base_0_3(bits_0_3))?;
         self.write(regs::InitAddr1::DEFAULT.with_base_11_4(bits_4_11))
-    }
-    
-    /// Write 8kB of config file to the init data register
-    fn write_config_file(&mut self) -> Result<(), D::Error> {
-        for oct in Self::BMI270_UCODE.iter().copied() {
-            self.write(regs::InitData::new_with_raw_value(oct))?;
-        }
-
-        Ok(())
     }
 }

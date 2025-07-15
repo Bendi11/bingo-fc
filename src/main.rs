@@ -13,6 +13,7 @@ use usbd_serial::{embedded_io::Write, SerialPort, USB_CLASS_CDC};
 use panic_halt as _;
 
 mod peripheral;
+pub mod state;
 
 use peripheral::bmi270;
 
@@ -118,11 +119,15 @@ fn main() -> ! {
         match serial.read(&mut buf[..]) {
             Ok(_) => {
                 if !init {
-                    status = Some(bmi.init(&mut delay));
+                    status = Some(bmi.init(&clocks, &mut delay));
                     init = true;
                 }
-
-                write!(serial, "Chip Status is {:?} - t{}\r\n", status, bmi.sensor_time().unwrap());
+                
+                let err_reg = bmi.read::<bmi270::regs::ErrReg>().unwrap();
+                let interr = bmi.read::<bmi270::regs::InternalError>().unwrap();
+                let stat = bmi.read::<bmi270::regs::Status>().unwrap();
+                let instat = bmi.read::<bmi270::regs::InternalStatus>().unwrap().message();
+                write!(serial, "Chip Status is {:?} - t{} - err {:?} - interr {:?} - stat {:?}\r\n", instat, bmi.sensor_time().unwrap(), err_reg, interr, instat);
                 pc8.set_high();
             },
             Err(UsbError::WouldBlock) => continue,
