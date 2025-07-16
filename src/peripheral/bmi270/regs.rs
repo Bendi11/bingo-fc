@@ -1,3 +1,5 @@
+use core::fmt;
+
 use arbitrary_int::u4;
 use bingofc_derive::register;
 use bitbybit::bitenum;
@@ -111,6 +113,7 @@ pub enum InternalStatusMessage {
 }
 
 #[register(addr = 0x21, reset = 0x00)]
+#[derive(Debug)]
 pub struct InternalStatus {
     #[bits(0..=2, r)] pub message: InternalStatusMessage,
     #[bit(5, r)] pub axes_remap_error: bool,
@@ -265,4 +268,38 @@ pub enum CmdField {
 #[register(addr = 0x7e, reset = 0x00)]
 pub struct Cmd {
     #[bits(0..=7, w)] pub field: CmdField,
+}
+
+impl fmt::Display for InternalStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f
+            .debug_struct("InternalStatus")
+            .field("message", &self.message())
+            .field("axes_remap_error", &self.axes_remap_error())
+            .field("odr_50hz_error", &self.odr_50hz_error())
+            .finish()
+    }
+}
+
+impl fmt::Display for InternalError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f
+            .debug_struct("InternalError")
+            .field("int_err_1", &self.int_err_1())
+            .field("int_err_2", &self.int_err_2())
+            .field("feat_eng_disabled", &self.feat_eng_disabled())
+            .finish()
+    }
+}
+
+impl fmt::Display for PwrCtrl {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f
+            .debug_struct("PwrCtrl")
+            .field("acc_en", &self.acc_en())
+            .field("gyr_en", &self.gyr_en())
+            .field("temp_en", &self.temp_en())
+            .field("aux_en", &self.aux_en())
+            .finish()
+    }
 }

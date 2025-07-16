@@ -3,7 +3,7 @@
 
 use bmi270::Bmi270;
 use cortex_m::Peripherals;
-use embedded_hal::spi::{Mode, Phase, Polarity};
+use embedded_hal::{delay::DelayNs, spi::{Mode, Phase, Polarity}};
 use embedded_hal_bus::spi::ExclusiveDevice;
 use stm32f4xx_hal::{gpio::{GpioExt, PinSpeed, Speed}, otg_fs::USB, pac::{self, NVIC, SPI1}, prelude::*, rcc::RccExt, timer::SysDelay};
 use synopsys_usb_otg::UsbBus;
@@ -33,14 +33,15 @@ fn main() -> ! {
     let clocks = rcc
         .cfgr
         .use_hse(8.MHz())
-        .sysclk(48.MHz())
-        .pclk1(24.MHz())
+        .sysclk(168.MHz())
+        .pclk1(42.MHz())
+        .pclk2(84.MHz())
         .require_pll48clk()
         .freeze();
 
-    let mut gpioa = peripherals.GPIOA.split();
+    let gpioa = peripherals.GPIOA.split();
 
-    let mut spi1_cs = gpioa.pa4.into_push_pull_output_in_state(stm32f4xx_hal::gpio::PinState::High);
+    let spi1_cs = gpioa.pa4.into_push_pull_output_in_state(stm32f4xx_hal::gpio::PinState::High);
 
     let usb_dm = gpioa.pa11;
     let usb_dp = gpioa.pa12;
@@ -82,9 +83,9 @@ fn main() -> ! {
         (gpioa.pa5, gpioa.pa6, mosi),
         Mode {
             polarity: Polarity::IdleLow,
-            phase: Phase::CaptureOnFirstTransition
+            phase: Phase::CaptureOnSecondTransition
         },
-        5.MHz(),
+        1.MHz(),
         &clocks
     ).init();
 
@@ -105,9 +106,10 @@ fn main() -> ! {
 
     
     let mut bmi = Bmi270::new(spi1);
+    delay.delay_ms(200);
+    let mut istat = bmi.init(&clocks, &mut delay).unwrap();
+    bmi.enable(&mut delay).unwrap();
 
-    let mut init = false;
-    let mut status = None;
 
     loop {
         if !device.poll(&mut [&mut serial]) {
@@ -118,16 +120,22 @@ fn main() -> ! {
         
         match serial.read(&mut buf[..]) {
             Ok(_) => {
-                if !init {
-                    status = Some(bmi.init(&clocks, &mut delay));
-                    init = true;
+                if istat == bmi270::regs::InternalStatusMessage::NotInit {
+                    istat = bmi.init(&clocks, &mut delay).unwrap();
+                    if istat == bmi270::regs::InternalStatusMessage::InitOk {
+                        bmi.enable(&mut delay).unwrap();
+                    }
                 }
-                
-                let err_reg = bmi.read::<bmi270::regs::ErrReg>().unwrap();
+                let status = bmi.status().unwrap().message();
+                let (gyro, measure) = bmi.data().unwrap();
+                let time = bmi.sensor_time().unwrap();
+                let intstat = bmi.status().unwrap();
+                let enabled = bmi.read::<bmi270::regs::PwrCtrl>().unwrap();
                 let interr = bmi.read::<bmi270::regs::InternalError>().unwrap();
-                let stat = bmi.read::<bmi270::regs::Status>().unwrap();
-                let instat = bmi.read::<bmi270::regs::InternalStatus>().unwrap().message();
-                write!(serial, "Chip Status is {:?} - t{} - err {:?} - interr {:?} - stat {:?}\r\n", instat, bmi.sensor_time().unwrap(), err_reg, interr, instat);
+                write!(&mut serial, "Accel is {measure:?} - gyro {gyro:?} - t{time} - stat {intstat} stat {status:?} - enabled {enabled} - err {interr}\r\n");
+                if !enabled.acc_en() {
+                    bmi.enable(&mut delay).unwrap();
+                }
                 pc8.set_high();
             },
             Err(UsbError::WouldBlock) => continue,
