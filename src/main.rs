@@ -34,8 +34,7 @@ fn main() -> ! {
         .cfgr
         .use_hse(8.MHz())
         .sysclk(168.MHz())
-        .pclk1(42.MHz())
-        .pclk2(84.MHz())
+        .pclk1(48.MHz())
         .require_pll48clk()
         .freeze();
 
@@ -75,17 +74,21 @@ fn main() -> ! {
             }
         }
     };
-
+    
+    let mut miso = gpioa.pa6.into_push_pull_output();
     let mut mosi = gpioa.pa7.into_push_pull_output();
+    let mut clk = gpioa.pa5.into_push_pull_output();
     mosi.set_speed(Speed::VeryHigh);
+    miso.set_speed(Speed::VeryHigh);
+    clk.set_speed(Speed::VeryHigh);
     
     let mut spi = peripherals.SPI1.spi(
-        (gpioa.pa5, gpioa.pa6, mosi),
+        (clk, miso, mosi),
         Mode {
             polarity: Polarity::IdleLow,
-            phase: Phase::CaptureOnSecondTransition
+            phase: Phase::CaptureOnFirstTransition
         },
-        1.MHz(),
+        10.MHz(),
         &clocks
     ).init();
 
@@ -103,12 +106,11 @@ fn main() -> ! {
             loop {}
         }
     };
-
     
-    let mut bmi = Bmi270::new(spi1);
     delay.delay_ms(200);
-    let mut istat = bmi.init(&clocks, &mut delay).unwrap();
-    bmi.enable(&mut delay).unwrap();
+    let mut bmi = Bmi270::new(spi1, delay);
+    let mut istat = bmi.init().unwrap();
+    bmi.enable().unwrap();
 
 
     loop {
@@ -120,21 +122,22 @@ fn main() -> ! {
         
         match serial.read(&mut buf[..]) {
             Ok(_) => {
-                if istat == bmi270::regs::InternalStatusMessage::NotInit {
-                    istat = bmi.init(&clocks, &mut delay).unwrap();
+                if istat == bmi270::regs::InternalStatusMessage::NotInit || istat == bmi270::regs::InternalStatusMessage::DrvErr {
+                    istat = bmi.init().unwrap();
                     if istat == bmi270::regs::InternalStatusMessage::InitOk {
-                        bmi.enable(&mut delay).unwrap();
+                        bmi.enable().unwrap();
                     }
                 }
                 let status = bmi.status().unwrap().message();
-                let (gyro, measure) = bmi.data().unwrap();
+                let (measure, gyro) = bmi.data().unwrap();
                 let time = bmi.sensor_time().unwrap();
                 let intstat = bmi.status().unwrap();
                 let enabled = bmi.read::<bmi270::regs::PwrCtrl>().unwrap();
                 let interr = bmi.read::<bmi270::regs::InternalError>().unwrap();
-                write!(&mut serial, "Accel is {measure:?} - gyro {gyro:?} - t{time} - stat {intstat} stat {status:?} - enabled {enabled} - err {interr}\r\n");
+                let id = bmi.read::<bmi270::regs::ChipId>().unwrap().raw_value();
+                write!(&mut serial, "Accel is {measure:?} - gyro {gyro:?} - t{time} - stat {intstat} stat {status:?} - enabled {enabled} - err {interr} - upload {istat:?} - id {id:X}\r\n");
                 if !enabled.acc_en() {
-                    bmi.enable(&mut delay).unwrap();
+                    bmi.enable().unwrap();
                 }
                 pc8.set_high();
             },
