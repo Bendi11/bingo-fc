@@ -108,7 +108,7 @@ fn main() -> ! {
     };
     
     delay.delay_ms(200);
-    let mut bmi = Bmi270::new(spi1, delay);
+    let mut bmi = Bmi270::new(spi1, &mut delay);
     let mut istat = bmi.init().unwrap();
     bmi.enable().unwrap();
 
