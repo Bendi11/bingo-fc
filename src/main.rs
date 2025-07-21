@@ -2,7 +2,6 @@
 #![no_main]
 
 use bmi270::Bmi270;
-use cortex_m::Peripherals;
 use embedded_hal::{delay::DelayNs, spi::{Mode, Phase, Polarity}};
 use embedded_hal_bus::spi::ExclusiveDevice;
 use stm32f4xx_hal::{gpio::{GpioExt, PinSpeed, Speed}, otg_fs::USB, pac::{self, NVIC, SPI1}, prelude::*, rcc::RccExt, timer::SysDelay};
@@ -14,8 +13,11 @@ use panic_halt as _;
 
 mod peripheral;
 pub mod state;
+pub mod serlog;
+pub mod util;
 
 use peripheral::bmi270;
+use util::CortexSharedDelayFactory;
 
 #[cortex_m_rt::entry]
 fn main() -> ! {
@@ -52,7 +54,7 @@ fn main() -> ! {
     );
 
     let usb_bus = UsbBus::new(usb, USB_EP_BUF);
-    
+
     let mut serial = SerialPort::new(&usb_bus);
 
     let mut device = match UsbDeviceBuilder::new(&usb_bus, usb_device::device::UsbVidPid(0xbeef, 0x0911))
@@ -94,9 +96,9 @@ fn main() -> ! {
 
     spi.bit_format(stm32f4xx_hal::spi::BitFormat::MsbFirst);
 
-    let mut delay = core_peripherals.SYST.delay(&clocks);
+    let delay_factory = CortexSharedDelayFactory::new(core_peripherals.SYST.delay(&clocks));
 
-    let spi1 = match ExclusiveDevice::new_no_delay(spi, spi1_cs) {
+    let spi1 = match ExclusiveDevice::new(spi, spi1_cs, delay_factory.borrow()) {
         Ok(d) => {
             let _ = serial.write_all(b"Created SPI device for BMI270\n");
             d
@@ -107,8 +109,8 @@ fn main() -> ! {
         }
     };
     
-    delay.delay_ms(200);
-    let mut bmi = Bmi270::new(spi1, &mut delay);
+    delay_factory.borrow().delay_ms(200);
+    let mut bmi = Bmi270::new(spi1, delay_factory.borrow());
     let mut istat = bmi.init().unwrap();
     bmi.enable().unwrap();
 
