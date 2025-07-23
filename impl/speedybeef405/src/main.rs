@@ -3,8 +3,9 @@
 
 use core::cell::{OnceCell, RefCell};
 
-use bingo_fc::peripheral::bmi270::Bmi270;
+use bingo_fc::peripheral::bmi270::{self, Bmi270};
 use cortex_m::interrupt::Mutex;
+use embedded_hal_bus::spi::ExclusiveDevice;
 use stm32f4xx_hal::{gpio::{GpioExt, Pin, PinSpeed, Speed}, otg_fs::USB, pac::{self, NVIC, SPI1}, prelude::*, rcc::RccExt, timer::SysDelay};
 use synopsys_usb_otg::UsbBus;
 

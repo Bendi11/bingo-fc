@@ -70,6 +70,7 @@ dependencies = [
  "bingo-fc",
  "cortex-m",
  "cortex-m-rt",
+ "embedded-hal-bus",
  "stm32f4xx-hal",
  "synopsys-usb-otg",
 ]

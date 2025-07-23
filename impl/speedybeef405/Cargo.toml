@@ -11,6 +11,9 @@ doctest = false
 bench = false
 
 [dependencies]
+
+embedded-hal-bus = "0.3"
+
 cortex-m = { version = "0.7", features = ["critical-section-single-core"] }
 cortex-m-rt = { version = "0.7", features = ["device"] }
 synopsys-usb-otg = "0.4"
