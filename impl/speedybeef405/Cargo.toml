@@ -1,0 +1,26 @@
+[package]
+name = "bingofc-speedybeef405"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "bingo-fc"
+path = "src/main.rs"
+test = false
+doctest = false
+bench = false
+
+[dependencies]
+cortex-m = { version = "0.7", features = ["critical-section-single-core"] }
+cortex-m-rt = { version = "0.7", features = ["device"] }
+synopsys-usb-otg = "0.4"
+
+bingo-fc = { path = "../../" }
+
+[dependencies.stm32f4xx-hal]
+version = "0.22"
+features = ["stm32f405", "usb_fs"]
+
+[target.release]
+codegen-units = 1
+opt-level = 's'
